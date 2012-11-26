@@ -1,0 +1,44 @@
+--- zopectl	2010-09-23 10:02:11.000000000 +0100
++++ /opt/zenoss/bin/zopectl	2010-09-23 10:08:10.000000000 +0100
+@@ -10,4 +10,27 @@
+ 
+ ZDCTL="$SOFTWARE_HOME/Zope2/Startup/zopectl.py"
+ 
+-exec "$PYTHON" "$ZDCTL" -C "$CONFIG_FILE" "$@"
++ZOPES=1
++
++[ $ZOPES -eq 1 ] && exec "$PYTHON" "$ZDCTL" -C "$CONFIG_FILE" "$@"
++
++for i in `seq $ZOPES`; do
++  # Make sure the clienthome exists
++  clienthome="$INSTANCE_HOME/var/zope$i"
++  if [ ! -d "$clienthome" ]; then
++    mkdir -p "$clienthome"
++    chown `whoami`:`whoami` "$clienthome"
++    chmod 755 "$clienthome"
++  fi
++
++  # Generate the config file
++  cfg="$clienthome/zope.conf"
++  if [ ! -f "$cfg" ]; then
++    echo "%include $CONFIG_FILE"   > $cfg
++    echo "clienthome $clienthome" >> $cfg
++    echo "port-base $((999+$i))"  >> $cfg
++  fi
++
++  # Start the zope
++  env CONFIG_FILE=$cfg "$PYTHON" "$ZDCTL" -C "$cfg" "$@"
++done
+
+--- runzope	2010-09-23 10:10:13.000000000 +0100
++++ /opt/zenoss/bin/runzope	2010-09-23 10:13:07.000000000 +0100
+@@ -3,7 +3,7 @@
+ PYTHON="/opt/zenoss/bin/python"
+ ZOPE_HOME="/opt/zenoss"
+ INSTANCE_HOME="/opt/zenoss"
+-CONFIG_FILE="/opt/zenoss/etc/zope.conf"
++CONFIG_FILE="${CONFIG_FILE:-/opt/zenoss/etc/zope.conf}"
+ SOFTWARE_HOME="/opt/zenoss/lib/python"
+ PYTHONPATH="$SOFTWARE_HOME"
+ export PYTHONPATH INSTANCE_HOME SOFTWARE_HOME
+
